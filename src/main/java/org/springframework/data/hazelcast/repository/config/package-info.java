@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * <P>
+ * <p>
  * Configuration defaults for using Hazelcast as a <I>key-value</I> store.
  * </P>
  */

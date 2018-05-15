@@ -37,7 +37,9 @@ import static org.hamcrest.Matchers.lessThanOrEqualTo;
 import static org.hamcrest.Matchers.notNullValue;
 import static org.hamcrest.Matchers.nullValue;
 import static org.hamcrest.Matchers.startsWith;
+import static org.junit.Assert.assertFalse;
 import static org.junit.Assert.assertThat;
+import static org.junit.Assert.assertTrue;
 
 /**
  * <P>
@@ -457,7 +459,7 @@ public class QueryIT extends TestDataHelper {
 		Set<String> years = new TreeSet<>(Arrays.asList(YEARS));
 
 		for (int page = 0; page < YEARS.length; page++) {
-			Pageable pageRequest = new PageRequest(page, SIZE_1);
+			Pageable pageRequest = PageRequest.of(page, SIZE_1);
 
 			Page<Person> pageResponse = this.personRepository.findByLastname("Day-Lewis", pageRequest);
 			assertThat("Page " + page + ", has content", pageResponse.hasContent(), equalTo(true));
@@ -519,7 +521,7 @@ public class QueryIT extends TestDataHelper {
 			pageRequest = pageResponse.nextPageable();
 			if (pagesRetrieved == expectedNumberOfPages) {
 				assertThat("Page " + pagesRetrieved + ", is last", pageResponse.hasNext(), equalTo(false));
-				assertThat("Page " + pagesRetrieved + ", no following page", pageRequest, nullValue());
+				assertTrue("Page " + pagesRetrieved + ", no following page", pageRequest.isUnpaged());
 				pageResponse = null;
 			} else {
 				assertThat("Page " + pagesRetrieved + ", not last", pageResponse.hasNext(), equalTo(true));

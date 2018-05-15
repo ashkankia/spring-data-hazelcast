@@ -6,7 +6,7 @@ import test.utils.domain.Movie;
 
 /**
  * <P>Extend the {@link MyTitleRepository} for movie titles,
- * inheriting some methods application to the base class {@link MyTitle}
+ * inheriting some methods application to the base class {@link test.utils.domain.MyTitle}
  * and adding some methods specific to {@link Movie} objects.
  * </P>
  * 

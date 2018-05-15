@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 /**
- * <P>
+ * <p>
  * Contains the {@link org.springframework.stereotype.Repository @Repository} bean interface available for Hazelcast
  * applications.
  * </P>

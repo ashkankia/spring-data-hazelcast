@@ -119,7 +119,7 @@ public class HazelcastQueryCreator extends AbstractQueryCreator<KeyValueQuery<Pr
         KeyValueQuery<Predicate<?, ?>> keyValueQuery;
 
         if (this.limit == 0) {
-            keyValueQuery = new KeyValueQuery<Predicate<?, ?>>(criteria);
+            keyValueQuery = new KeyValueQuery<>(criteria);
         } else {
             keyValueQuery = new KeyValueQuery<Predicate<?, ?>>(new PagingPredicate(criteria, this.limit));
         }
@@ -173,33 +173,29 @@ public class HazelcastQueryCreator extends AbstractQueryCreator<KeyValueQuery<Pr
             case REGEX:
                 return Predicates.regex(property, iterator.next().toString());
             /* case EXISTS:
-			 * case NEAR:
-			 * case WITHIN:
-			 */
+             * case NEAR:
+             * case WITHIN:
+             */
             default:
                 throw new InvalidDataAccessApiUsageException(String.format("Unsupported type '%s'", type));
         }
     }
 
-    private Predicate<?, ?> fromBooleanVariant(Type type, String property) {
-        switch (type) {
-            case TRUE:
-                return Predicates.equal(property, true);
-            case FALSE:
-                return Predicates.equal(property, false);
+    private boolean ifIgnoreCase(Part part) {
+        switch (part.shouldIgnoreCase()) {
+            case ALWAYS:
+                Assert.state(canUpperCase(part.getProperty()),
+                        String.format("Unable to ignore case of %s types, the property '%s' must reference a String",
+                                part.getProperty().getType().getName(), part.getProperty().getSegment()));
+                return true;
+            case WHEN_POSSIBLE:
+                if (canUpperCase(part.getProperty())) {
+                    return true;
+                }
+                return false;
+            case NEVER:
             default:
-                throw new InvalidDataAccessApiUsageException(String.format("Logic error for '%s' in query", type));
-        }
-    }
-
-    private Predicate<?, ?> fromCollectionVariant(Type type, String property, Iterator<Comparable<?>> iterator) {
-        switch (type) {
-            case IN:
-                return Predicates.in(property, collectToArray(type, iterator));
-            case NOT_IN:
-                return Predicates.not(Predicates.in(property, collectToArray(type, iterator)));
-            default:
-                throw new InvalidDataAccessApiUsageException(String.format("Logic error for '%s' in query", type));
+                return false;
         }
     }
 
@@ -236,21 +232,12 @@ public class HazelcastQueryCreator extends AbstractQueryCreator<KeyValueQuery<Pr
         }
     }
 
-    private Predicate<?, ?> fromEqualityVariant(Type type, boolean ignoreCase, String property,
-                                                Iterator<Comparable<?>> iterator) {
+    private Predicate<?, ?> fromCollectionVariant(Type type, String property, Iterator<Comparable<?>> iterator) {
         switch (type) {
-            case SIMPLE_PROPERTY:
-                if(ignoreCase) {
-                    return Predicates.ilike(property, iterator.next().toString());
-                } else {
-                    return Predicates.equal(property, iterator.next());
-                }
-            case NEGATING_SIMPLE_PROPERTY:
-                if(ignoreCase) {
-                    return Predicates.not(Predicates.ilike(property, iterator.next().toString()));
-                } else {
-                    return Predicates.notEqual(property, iterator.next());
-                }
+            case IN:
+                return Predicates.in(property, collectToArray(type, iterator));
+            case NOT_IN:
+                return Predicates.not(Predicates.in(property, collectToArray(type, iterator)));
             default:
                 throw new InvalidDataAccessApiUsageException(String.format("Logic error for '%s' in query", type));
         }
@@ -283,21 +270,34 @@ public class HazelcastQueryCreator extends AbstractQueryCreator<KeyValueQuery<Pr
         return type.equals(NOT_LIKE) || type.equals(NOT_CONTAINING) ? Predicates.not(likePredicate) : likePredicate;
     }
 
-    private boolean ifIgnoreCase(Part part) {
-        switch (part.shouldIgnoreCase()) {
-            case ALWAYS:
-                Assert.state(canUpperCase(part.getProperty()),
-                        String.format("Unable to ignore case of %s types, the property '%s' must reference a String",
-                                part.getProperty().getType().getName(), part.getProperty().getSegment()));
-                return true;
-            case WHEN_POSSIBLE:
-                if (canUpperCase(part.getProperty())) {
-                    return true;
-                }
-                return false;
-            case NEVER:
+    private Predicate<?, ?> fromBooleanVariant(Type type, String property) {
+        switch (type) {
+            case TRUE:
+                return Predicates.equal(property, true);
+            case FALSE:
+                return Predicates.equal(property, false);
             default:
-                return false;
+                throw new InvalidDataAccessApiUsageException(String.format("Logic error for '%s' in query", type));
+        }
+    }
+
+    private Predicate<?, ?> fromEqualityVariant(Type type, boolean ignoreCase, String property,
+                                                Iterator<Comparable<?>> iterator) {
+        switch (type) {
+            case SIMPLE_PROPERTY:
+                if (ignoreCase) {
+                    return Predicates.ilike(property, iterator.next().toString());
+                } else {
+                    return Predicates.equal(property, iterator.next());
+                }
+            case NEGATING_SIMPLE_PROPERTY:
+                if (ignoreCase) {
+                    return Predicates.not(Predicates.ilike(property, iterator.next().toString()));
+                } else {
+                    return Predicates.notEqual(property, iterator.next());
+                }
+            default:
+                throw new InvalidDataAccessApiUsageException(String.format("Logic error for '%s' in query", type));
         }
     }
 
@@ -305,14 +305,14 @@ public class HazelcastQueryCreator extends AbstractQueryCreator<KeyValueQuery<Pr
         return String.class.equals(path.getType());
     }
 
-    private boolean isCollection(Object item) {
-        return Collection.class.isAssignableFrom(item.getClass());
-    }
-
     private Comparable<?>[] collectToArray(Type type, Iterator<Comparable<?>> iterator) {
         Object item = iterator.next();
         Assert.state(isCollection(item), String.format("%s requires collection of values", type));
         Collection<Comparable<?>> itemcol = (Collection<Comparable<?>>) item;
         return itemcol.toArray(new Comparable<?>[0]);
+    }
+
+    private boolean isCollection(Object item) {
+        return Collection.class.isAssignableFrom(item.getClass());
     }
 }

@@ -16,20 +16,19 @@
 package org.springframework.data.hazelcast.repository.support;
 
 import org.springframework.core.annotation.AnnotationUtils;
+import org.springframework.data.hazelcast.repository.query.Query;
 import org.springframework.data.keyvalue.annotation.KeySpace;
 import org.springframework.data.projection.ProjectionFactory;
 import org.springframework.data.repository.core.RepositoryMetadata;
 import org.springframework.data.repository.query.QueryMethod;
 import org.springframework.util.StringUtils;
 
-import org.springframework.data.hazelcast.repository.query.Query;
-
 import java.lang.reflect.Method;
 
 /**
  * Hazelcast {@link QueryMethod} Implementation
  */
-public class HazelcastQueryMethod extends QueryMethod{
+public class HazelcastQueryMethod extends QueryMethod {
 
     private final Method method;
 

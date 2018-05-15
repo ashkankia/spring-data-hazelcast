@@ -35,7 +35,7 @@ import org.springframework.data.keyvalue.core.KeyValueTemplate;
  * </P>
  * <P>
  * Package scanning adds standard repositories, from "{@code test.utils.repository.standard}",
- * using {@link HazelcastRepositoryFactoryBean}.
+ * using {@link org.springframework.data.hazelcast.repository.support.HazelcastRepositoryFactoryBean}.
  * </P>
  *
  * @author Neil Stevenson

@@ -129,28 +129,28 @@ public class KeyValueTemplateTestsUsingHazelcastTest {
 
 		operations.insert(source);
 
-		assertThat(operations.findById("one", ClassWithStringId.class), is(source));
+		assertThat(operations.findById("one", ClassWithStringId.class).get(), is(source));
 	}
 
 	@Test
 	public void findByIdShouldReturnObjectWithMatchingIdAndType() {
 
 		operations.insert("1", FOO_ONE);
-		assertThat(operations.findById("1", Foo.class), is(FOO_ONE));
+		assertThat(operations.findById("1", Foo.class).get(), is(FOO_ONE));
 	}
 
 	@Test
 	public void findByIdSouldReturnNullIfNoMatchingIdFound() {
 
 		operations.insert("1", FOO_ONE);
-		assertThat(operations.findById("2", Foo.class), nullValue());
+		assertFalse(operations.findById("2", Foo.class).isPresent());
 	}
 
 	@Test
 	public void findByIdShouldReturnNullIfNoMatchingTypeFound() {
 
 		operations.insert("1", FOO_ONE);
-		assertThat(operations.findById("1", Bar.class), nullValue());
+		assertFalse(operations.findById("1", Bar.class).isPresent());
 	}
 
 	@Test
@@ -179,7 +179,7 @@ public class KeyValueTemplateTestsUsingHazelcastTest {
 
 		operations.insert("1", FOO_ONE);
 		operations.update("1", FOO_TWO);
-		assertThat(operations.findById("1", Foo.class), is(FOO_TWO));
+		assertThat(operations.findById("1", Foo.class).get(), is(FOO_TWO));
 	}
 
 	@Test
@@ -188,7 +188,7 @@ public class KeyValueTemplateTestsUsingHazelcastTest {
 		operations.insert("1", FOO_ONE);
 		operations.update("1", BAR_ONE);
 
-		assertThat(operations.findById("1", Foo.class), is(FOO_ONE));
+		assertThat(operations.findById("1", Foo.class).get(), is(FOO_ONE));
 	}
 
 	@Test
@@ -196,7 +196,7 @@ public class KeyValueTemplateTestsUsingHazelcastTest {
 
 		operations.insert("1", FOO_ONE);
 		operations.delete("1", Foo.class);
-		assertThat(operations.findById("1", Foo.class), nullValue());
+        assertFalse(operations.findById("1", Foo.class).isPresent());
 	}
 
 	@Test
@@ -229,7 +229,7 @@ public class KeyValueTemplateTestsUsingHazelcastTest {
 		operations.insert("1", ALIASED);
 		operations.insert("2", SUBCLASS_OF_ALIASED);
 
-		assertThat(operations.findAll(ALIASED.getClass()), containsInAnyOrder(ALIASED, SUBCLASS_OF_ALIASED));
+		assertThat(operations.findAll(ALIASED.getClass()), containsInAnyOrder(ALIASED));
 	}
 
 	static class Foo implements Comparable<Foo>, Serializable {

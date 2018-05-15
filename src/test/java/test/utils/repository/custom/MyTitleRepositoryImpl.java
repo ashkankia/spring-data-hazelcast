@@ -36,7 +36,7 @@ public class MyTitleRepositoryImpl<T extends Serializable, ID extends Serializab
 	 */
 	public int wordsInTitle(String year) {
 		@SuppressWarnings("unchecked")
-		MyTitle myTitle = (MyTitle) super.findOne((ID) year);
+		MyTitle myTitle = (MyTitle) super.findById((ID) year).get();
 
 		if (myTitle==null) {
 			return -1;

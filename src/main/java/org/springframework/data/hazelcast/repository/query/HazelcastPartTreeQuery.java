@@ -15,9 +15,6 @@
  */
 package org.springframework.data.hazelcast.repository.query;
 
-import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.List;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.SliceImpl;
@@ -36,11 +33,15 @@ import org.springframework.data.repository.query.parser.Part;
 import org.springframework.data.repository.query.parser.PartTree;
 import org.springframework.data.util.StreamUtils;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+
 /**
- * <P>
+ * <p>
  * There is one instance for each query method defined for a repository, providing a query from the bind parameters.
  * </P>
- * <P>
+ * <p>
  * TODO The {@link #execute} method calls the {@link #prepareQuery} to bind the parameters to the query. This results in
  * Hazelcast's {@link com.hazelcast.query.PredicateBuilder PredicateBuilder} being called for each query execution. A
  * more efficient mechanism would be to some sort of templating that would allow the parameters to be instantiated into
@@ -51,331 +52,332 @@ import org.springframework.data.util.StreamUtils;
  */
 public class HazelcastPartTreeQuery extends KeyValuePartTreeQuery {
 
-	private final QueryMethod queryMethod;
-	private final KeyValueOperations keyValueOperations;
+    private final QueryMethod queryMethod;
+    private final KeyValueOperations keyValueOperations;
 
-	private boolean isCount;
-	private boolean isDelete;
-	private boolean isDistinct;
+    private boolean isCount;
+    private boolean isDelete;
+    private boolean isDistinct;
 
-	private boolean isRearrangeKnown;
-	private boolean isRearrangeRequired;
-	private int[] rearrangeIndex;
+    private boolean isRearrangeKnown;
+    private boolean isRearrangeRequired;
+    private int[] rearrangeIndex;
 
-	/**
-	 * <P>
-	 * Create a {@link RepositoryQuery} implementation for each query method defined in a {@link HazelcastRepository}.
-	 * </P>
-	 *
-	 * @param queryMethod Method defined in {@code HazelcastRepository}
-	 * @param evalulationContextProvider Not used
-	 * @param keyValueOperations Interface to Hazelcast
-	 * @param queryCreator Not used
-	 */
-	public HazelcastPartTreeQuery(QueryMethod queryMethod, EvaluationContextProvider evaluationContextProvider,
-			KeyValueOperations keyValueOperations, Class<? extends AbstractQueryCreator<?, ?>> queryCreator) {
-		super(queryMethod, evaluationContextProvider, keyValueOperations, queryCreator);
-		this.queryMethod = queryMethod;
-		this.keyValueOperations = keyValueOperations;
+    /**
+     * <p>
+     * Create a {@link RepositoryQuery} implementation for each query method defined in a {@link org.springframework.data.hazelcast.repository.HazelcastRepository}.
+     * </P>
+     *
+     * @param queryMethod               Method defined in {@code HazelcastRepository}
+     * @param evaluationContextProvider Not used
+     * @param keyValueOperations        Interface to Hazelcast
+     * @param queryCreator              Not used
+     */
+    public HazelcastPartTreeQuery(QueryMethod queryMethod, EvaluationContextProvider evaluationContextProvider, KeyValueOperations keyValueOperations, Class<? extends AbstractQueryCreator<?, ?>> queryCreator) {
+        super(queryMethod, evaluationContextProvider, keyValueOperations, queryCreator);
+        this.queryMethod = queryMethod;
+        this.keyValueOperations = keyValueOperations;
 
-		this.isRearrangeKnown = false;
-	}
+        this.isRearrangeKnown = false;
+    }
 
-	/**
-	 * <P>
-	 * Execute this query instance, using any invocation parameters.
-	 * </P>
-	 * <P>
-	 * Expecting {@code findBy...()}, {@code countBy...()} or {@code deleteBy...()}
-	 * </P>
-	 *
-	 * @param parameters Any parameters
-	 * @return Query result
-	 */
-	@Override
-	public Object execute(Object[] parameters) {
+    /**
+     * <p>
+     * Execute this query instance, using any invocation parameters.
+     * </P>
+     * <p>
+     * Expecting {@code findBy...()}, {@code countBy...()} or {@code deleteBy...()}
+     * </P>
+     *
+     * @param parameters Any parameters
+     * @return Query result
+     */
+    @Override
+    public Object execute(Object[] parameters) {
 
-		KeyValueQuery<?> query = prepareQuery(parameters);
+        KeyValueQuery<?> query = prepareQuery(parameters);
 
-		/* Queries return domain objects not projections. In Spring Data, domain objects
-		 * include a unique @Id. So DISTINCT as a modifier is irrelevant ; throw exception
-		 * rather than ignore to alert the user.
-		 */
-		if (this.isDistinct) {
-			String message = String.format("DISTINCT modifier in '%s' not applicable to Key-Value queries.", queryMethod.getName());
-			throw new UnsupportedOperationException(message);
-		}
+        /* Queries return domain objects not projections. In Spring Data, domain objects
+         * include a unique @Id. So DISTINCT as a modifier is irrelevant ; throw exception
+         * rather than ignore to alert the user.
+         */
+        if (this.isDistinct) {
+            String message = String.format("DISTINCT modifier in '%s' not applicable to Key-Value queries.", queryMethod.getName());
+            throw new UnsupportedOperationException(message);
+        }
 
-		if (this.isCount) {
-			return this.keyValueOperations.count(query, queryMethod.getEntityInformation().getJavaType());
-		}
+        if (this.isCount) {
+            return this.keyValueOperations.count(query, queryMethod.getEntityInformation().getJavaType());
+        }
 
-		if (this.isDelete) {
-			return this.executeDeleteQuery(query, queryMethod);
-		}
+        if (this.isDelete) {
+            return this.executeDeleteQuery(query, queryMethod);
+        }
 
-		if (queryMethod.isPageQuery() || queryMethod.isSliceQuery()) {
-			return this.executePageSliceQuery(parameters, query, queryMethod);
-		}
+        if (queryMethod.isPageQuery() || queryMethod.isSliceQuery()) {
+            return this.executePageSliceQuery(parameters, query, queryMethod);
+        }
 
-		if (queryMethod.isCollectionQuery() || queryMethod.isQueryForEntity() || queryMethod.isStreamQuery()) {
-			return this.executeFindQuery(query, queryMethod);
-		}
+        if (queryMethod.isCollectionQuery() || queryMethod.isQueryForEntity() || queryMethod.isStreamQuery()) {
+            return this.executeFindQuery(query, queryMethod);
+        }
 
-		String message = String.format("Query method '%s' not supported.", queryMethod.getName());
-		throw new UnsupportedOperationException(message);
-	}
+        String message = String.format("Query method '%s' not supported.", queryMethod.getName());
+        throw new UnsupportedOperationException(message);
+    }
 
-	/**
-	 * <P>
-	 * Execute a "delete" query, not really a query more of an operation.
-	 * </P>
-	 * <P>
-	 * <B>NOTE:</B> Delete is not a collection operation, the return value is a single object that
-	 * was deleted.
-	 * </P>
-	 * <P>Although the <I>find</I> operation returns an iterator, the result set is either empty
-	 * or has one domain object in it. If there are multiple possible matches it's random which
-	 * one of the matches is deleted.
-	 * </P>
-	 *
-	 * @param query The query to run
-	 * @param queryMethod Used here to find the type of object to match the query
-	 * @return Query The individual entry deleted
-	 */
-	private Object executeDeleteQuery(final KeyValueQuery<?> query, final QueryMethod queryMethod) {
-		
-		Iterable<?> resultSet = this.keyValueOperations.find(query, queryMethod.getEntityInformation().getJavaType());
-		Iterator<?> iterator = resultSet.iterator();
-		
-		if (iterator.hasNext()) {
-			return this.keyValueOperations.delete(iterator.next());
-		} else {
-			return null;
-		}
-	}
-	
+    /**
+     * <p>
+     * Execute a "delete" query, not really a query more of an operation.
+     * </p>
+     * <p>
+     * <b>NOTE:</b> Delete is not a collection operation, the return value is a single object that
+     * was deleted.
+     * </p>
+     * <p>Although the <i>find</i> operation returns an iterator, the result set is either empty
+     * or has one domain object in it. If there are multiple possible matches it's random which
+     * one of the matches is deleted.
+     * </p>
+     *
+     * @param query       The query to run
+     * @param queryMethod Used here to find the type of object to match the query
+     * @return Query The individual entry deleted
+     */
+    private Object executeDeleteQuery(final KeyValueQuery<?> query, final QueryMethod queryMethod) {
 
-	/**
-	 * <P>
-	 * Execute a retrieval query. The query engine will return this in an iterator, which may need conversion to a single
-	 * domain entity or a stream.
-	 * </P>
-	 *
-	 * @param query The query to run
-	 * @param queryMethod Holds metadata about the query, is paging etc
-	 * @return Query result
-	 */
-	private Object executeFindQuery(final KeyValueQuery<?> query, final QueryMethod queryMethod) {
+        Iterable<?> resultSet = this.keyValueOperations.find(query, queryMethod.getEntityInformation().getJavaType());
+        Iterator<?> iterator = resultSet.iterator();
 
-		Iterable<?> resultSet = this.keyValueOperations.find(query, queryMethod.getEntityInformation().getJavaType());
+        if (iterator.hasNext()) {
+            return this.keyValueOperations.delete(iterator.next());
+        } else {
+            return null;
+        }
+    }
 
-		if (!queryMethod.isCollectionQuery() && !queryMethod.isPageQuery() && !queryMethod.isSliceQuery()
-				&& !queryMethod.isStreamQuery()) {
-			// Singleton result
-			return resultSet.iterator().hasNext() ? resultSet.iterator().next() : null;
-		}
+    /**
+     * <p>
+     * Slices and pages are similar ways to iterate through the result set in blocks, mimicking a cursor. A
+     * {@link org.springframework.data.domain.Slice Slice} is a simpler concept, only requiring to know if further blocks
+     * of data are available. A {@link org.springframework.data.domain.Page Page} requires to know how many blocks of data
+     * are available in total.
+     * </p>
+     *
+     * @param parameters  For the query
+     * @param query       The query to run
+     * @param queryMethod Holds metadata about the query
+     * @return Query result
+     */
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private Object executePageSliceQuery(final Object[] parameters, final KeyValueQuery<?> query,
+                                         final QueryMethod queryMethod) {
+        long totalElements = -1;
 
-		if (queryMethod.isStreamQuery()) {
-			return StreamUtils.createStreamFromIterator(resultSet.iterator());
-		}
+        int indexOfPageRequest = queryMethod.getParameters().getPageableIndex();
+        Pageable pageRequest = (Pageable) parameters[indexOfPageRequest];
 
-		return resultSet;
-	}
+        /* TODO Eliminate count call for Slice, retrieve "rows+1" instead to determine if next page exists.
+         */
+        if (query.getCriteria() == null) {
+            totalElements = this.keyValueOperations.count(queryMethod.getEntityInformation().getJavaType());
+        } else {
+            totalElements = this.keyValueOperations.count(query, queryMethod.getEntityInformation().getJavaType());
+        }
 
-	/**
-	 * <P>
-	 * Slices and pages are similar ways to iterate through the result set in blocks, mimicking a cursor. A
-	 * {@link org.springframework.data.domain.Slice Slice} is a simpler concept, only requiring to know if further blocks
-	 * of data are available. A {@link org.springframework.data.domain.Page Page} requires to know how many blocks of data
-	 * are available in total.
-	 * </P>
-	 *
-	 * @param parameters For the query
-	 * @param query The query to run
-	 * @param queryMethod Holds metadata about the query
-	 * @return Query result
-	 */
-	@SuppressWarnings({ "rawtypes", "unchecked" })
-	private Object executePageSliceQuery(final Object[] parameters, final KeyValueQuery<?> query,
-			final QueryMethod queryMethod) {
-		long totalElements = -1;
+        int requiredRows = pageRequest.getPageSize();
 
-		int indexOfPageRequest = queryMethod.getParameters().getPageableIndex();
-		Pageable pageRequest = (Pageable) parameters[indexOfPageRequest];
+        query.setOffset(pageRequest.getOffset());
+        query.setRows(pageRequest.getPageSize());
 
-		/* TODO Eliminate count call for Slice, retrieve "rows+1" instead to determine if next page exists.
-		 */
-		if (query.getCritieria() == null) {
-			totalElements = this.keyValueOperations.count(queryMethod.getEntityInformation().getJavaType());
-		} else {
-			totalElements = this.keyValueOperations.count(query, queryMethod.getEntityInformation().getJavaType());
-		}
+        Iterable<?> resultSet = this.keyValueOperations.find(query, queryMethod.getEntityInformation().getJavaType());
+        List<?> content = IterableConverter.toList(resultSet);
 
-		int requiredRows = pageRequest.getPageSize();
+        if (queryMethod.isPageQuery()) {
+            return new PageImpl(content, pageRequest, totalElements);
+        } else {
+            boolean hasNext = totalElements > (query.getOffset() + query.getRows());
+            if (content.size() > requiredRows) {
+                content = content.subList(0, requiredRows);
+            }
+            return new SliceImpl(content, pageRequest, hasNext);
+        }
+    }
 
-		query.setOffset(pageRequest.getOffset());
-		query.setRows(pageRequest.getPageSize());
+    /**
+     * <p>
+     * Execute a retrieval query. The query engine will return this in an iterator, which may need conversion to a single
+     * domain entity or a stream.
+     * </p>
+     *
+     * @param query       The query to run
+     * @param queryMethod Holds metadata about the query, is paging etc
+     * @return Query result
+     */
+    private Object executeFindQuery(final KeyValueQuery<?> query, final QueryMethod queryMethod) {
 
-		Iterable<?> resultSet = this.keyValueOperations.find(query, queryMethod.getEntityInformation().getJavaType());
-		List<?> content = IterableConverter.toList(resultSet);
+        Iterable<?> resultSet = this.keyValueOperations.find(query, queryMethod.getEntityInformation().getJavaType());
 
-		if (queryMethod.isPageQuery()) {
-			return new PageImpl(content, pageRequest, totalElements);
-		} else {
-			boolean hasNext = totalElements > (query.getOffset() + query.getRows());
-			if (content.size() > requiredRows) {
-				content = content.subList(0, requiredRows);
-			}
-			return new SliceImpl(content, pageRequest, hasNext);
-		}
-	}
+        if (!queryMethod.isCollectionQuery() && !queryMethod.isPageQuery() && !queryMethod.isSliceQuery()
+                && !queryMethod.isStreamQuery()) {
+            // Singleton result
+            return resultSet.iterator().hasNext() ? resultSet.iterator().next() : null;
+        }
 
-	/**
-	 * <P>
-	 * Create the query from the bind parameters.
-	 * </P>
-	 *
-	 * @param parameters Possibly empty list of query parameters
-	 * @return A ready-to-use query
-	 */
-	protected KeyValueQuery<?> prepareQuery(Object[] parameters) {
-		PartTree tree = null;
+        if (queryMethod.isStreamQuery()) {
+            return StreamUtils.createStreamFromIterator(resultSet.iterator());
+        }
 
-		if (this.queryMethod.getParameters().getNumberOfParameters() > 0) {
-			tree = new PartTree(getQueryMethod().getName(), getQueryMethod().getEntityInformation().getJavaType());
-			this.isCount = tree.isCountProjection();
-			this.isDelete = tree.isDelete();
-			this.isDistinct = tree.isDistinct();
-		} else {
-			this.isCount = false;
-			this.isDelete = false;
-			this.isDistinct = false;
-		}
+        return resultSet;
+    }
 
-		ParametersParameterAccessor accessor = this.prepareAccessor(parameters, tree);
+    /**
+     * <p>
+     * Handle {@code @Param}.
+     * </p>
+     * <OL>
+     * <LI><B>Without {@code @Param}</B>
+     * <p>
+     * Arguments to the call are assumed to follow the same sequence as cited in the method name.
+     * </P>
+     * <p>
+     * Eg.
+     *
+     * <pre>
+     * findBy<U>One</U>And<U>Two</U>(String <U>one</U>, String <U>two</U>);
+     * </pre>
+     * </P>
+     * </LI>
+     * <LI><B>With {@code @Param}</B>
+     * <p>
+     * Arguments to the call are use the {@code @Param} to match them against the fields.
+     * <p>
+     * Eg.
+     *
+     * <pre>
+     * findBy<U>One</U>And<U>Two</U>(@Param("two") String <U>two</U>, @Param("one") String <U>one</U>);
+     * </pre>
+     * </P>
+     * </LI>
+     * </OL>
+     *
+     * @param originalParameters Possibly empty
+     * @param partTree           Query tree to traverse
+     * @return Paremeters in correct order
+     */
+    private ParametersParameterAccessor prepareAccessor(final Object[] originalParameters, final PartTree partTree) {
 
-		KeyValueQuery<?> query = createQuery(accessor);
+        if (!this.isRearrangeKnown) {
+            this.prepareRearrange(partTree, this.queryMethod.getParameters().getBindableParameters());
+            this.isRearrangeKnown = true;
+        }
 
-		if (accessor.getPageable() != null) {
-			query.setOffset(accessor.getPageable().getOffset());
-			query.setRows(accessor.getPageable().getPageSize());
-		} else {
-			query.setOffset(-1);
-			query.setRows(-1);
-		}
+        Object[] parameters = originalParameters;
+        if (parameters != null && this.isRearrangeRequired) {
+            parameters = new Object[originalParameters.length];
 
-		if (accessor.getSort() != null) {
-			query.setSort(accessor.getSort());
-		}
+            for (int i = 0; i < parameters.length; i++) {
+                int index = rearrangeIndex[i];
+                parameters[i] = originalParameters[index];
+            }
+        }
 
-		return query;
-	}
+        return new ParametersParameterAccessor(this.queryMethod.getParameters(), parameters);
+    }
 
-	/**
-	 * <P>
-	 * Handle {@code @Param}.
-	 * </P>
-	 * <OL>
-	 * <LI><B>Without {@code @Param}</B>
-	 * <P>
-	 * Arguments to the call are assumed to follow the same sequence as cited in the method name.
-	 * </P>
-	 * <P>
-	 * Eg.
-	 * 
-	 * <pre>
-	 * findBy<U>One</U>And<U>Two</U>(String <U>one</U>, String <U>two</U>);
-	 * </pre>
-	 * </P>
-	 * </LI>
-	 * <LI><B>With {@code @Param}</B>
-	 * <P>
-	 * Arguments to the call are use the {@code @Param} to match them against the fields.
-	 * <P>
-	 * Eg.
-	 * 
-	 * <pre>
-	 * findBy<U>One</U>And<U>Two</U>(@Param("two") String <U>two</U>, @Param("one") String <U>one</U>);
-	 * </pre>
-	 * </P>
-	 * </LI>
-	 * </OL>
-	 *
-	 * @param parameters Possibly empty
-	 * @param partTree Query tree to traverse
-	 * @return Paremeters in correct order
-	 */
-	private ParametersParameterAccessor prepareAccessor(final Object[] originalParameters, final PartTree partTree) {
+    /**
+     * <p>
+     * Determine if the arguments to the method need reordered.
+     * </P>
+     * <p>
+     * For searches such as {@code findBySomethingNotNull} there may be more parts than parameters needed to be bound to
+     * them.
+     * </P>
+     *
+     * @param partTree           Query parts
+     * @param bindableParameters Parameters expected
+     */
+    @SuppressWarnings("unchecked")
+    private void prepareRearrange(final PartTree partTree, final Parameters<?, ?> bindableParameters) {
 
-		if (!this.isRearrangeKnown) {
-			this.prepareRearrange(partTree, this.queryMethod.getParameters().getBindableParameters());
-			this.isRearrangeKnown = true;
-		}
+        this.isRearrangeRequired = false;
+        if (partTree == null || bindableParameters == null) {
+            return;
+        }
 
-		Object[] parameters = originalParameters;
-		if (parameters != null && this.isRearrangeRequired) {
-			parameters = new Object[originalParameters.length];
+        List<String> queryParams = new ArrayList<>();
+        List<String> methodParams = new ArrayList<>();
 
-			for (int i = 0; i < parameters.length; i++) {
-				int index = rearrangeIndex[i];
-				parameters[i] = originalParameters[index];
-			}
-		}
+        Iterator<Part> partTreeIterator = partTree.getParts().iterator();
+        while (partTreeIterator.hasNext()) {
+            Part part = partTreeIterator.next();
+            queryParams.add(part.getProperty().getSegment());
+        }
 
-		return new ParametersParameterAccessor(this.queryMethod.getParameters(), parameters);
-	}
+        Iterator<Parameter> bindableParameterIterator = (Iterator<Parameter>) bindableParameters.iterator();
+        while (bindableParameterIterator.hasNext()) {
+            Parameter parameter = bindableParameterIterator.next();
+            if (parameter.getName().isPresent()) {
+                methodParams.add(parameter.getName().get());
+            }
+        }
 
-	/**
-	 * <P>
-	 * Determine if the arguments to the method need reordered.
-	 * </P>
-	 * <P>
-	 * For searches such as {@code findBySomethingNotNull} there may be more parts than parameters needed to be bound to
-	 * them.
-	 * </P>
-	 *
-	 * @param partTree Query parts
-	 * @param bindableParameters Parameters expected
-	 */
-	@SuppressWarnings("unchecked")
-	private void prepareRearrange(final PartTree partTree, final Parameters<?, ?> bindableParameters) {
+        this.rearrangeIndex = new int[queryParams.size()];
 
-		this.isRearrangeRequired = false;
-		if (partTree == null || bindableParameters == null) {
-			return;
-		}
+        String[] paramsExpected = queryParams.toArray(new String[queryParams.size()]);
+        String[] paramsProvided = methodParams.toArray(new String[methodParams.size()]);
 
-		List<String> queryParams = new ArrayList<>();
-		List<String> methodParams = new ArrayList<>();
+        for (int i = 0; i < this.rearrangeIndex.length; i++) {
+            this.rearrangeIndex[i] = i;
 
-		Iterator<Part> partTreeIterator = partTree.getParts().iterator();
-		while (partTreeIterator.hasNext()) {
-			Part part = partTreeIterator.next();
-			queryParams.add(part.getProperty().getSegment());
-		}
+            for (int j = 0; j < paramsProvided.length; j++) {
+                if (paramsProvided[j] != null && paramsProvided[j].equals(paramsExpected[i])) {
+                    this.rearrangeIndex[i] = j;
+                    this.isRearrangeRequired = true;
+                }
+            }
+        }
+    }
 
-		Iterator<Parameter> bindableParameterIterator = (Iterator<Parameter>) bindableParameters.iterator();
-		while (bindableParameterIterator.hasNext()) {
-			Parameter parameter = bindableParameterIterator.next();
-			methodParams.add(parameter.getName());
-		}
+    /**
+     * <p>
+     * Create the query from the bind parameters.
+     * </P>
+     *
+     * @param parameters Possibly empty list of query parameters
+     * @return A ready-to-use query
+     */
+    @Override
+    protected KeyValueQuery<?> prepareQuery(Object[] parameters) {
+        PartTree tree = null;
 
-		this.rearrangeIndex = new int[queryParams.size()];
+        if (this.queryMethod.getParameters().getNumberOfParameters() > 0) {
+            tree = new PartTree(getQueryMethod().getName(), getQueryMethod().getEntityInformation().getJavaType());
+            this.isCount = tree.isCountProjection();
+            this.isDelete = tree.isDelete();
+            this.isDistinct = tree.isDistinct();
+        } else {
+            this.isCount = false;
+            this.isDelete = false;
+            this.isDistinct = false;
+        }
 
-		String[] paramsExpected = queryParams.toArray(new String[queryParams.size()]);
-		String[] paramsProvided = methodParams.toArray(new String[methodParams.size()]);
+        ParametersParameterAccessor accessor = this.prepareAccessor(parameters, tree);
 
-		for (int i = 0; i < this.rearrangeIndex.length; i++) {
-			this.rearrangeIndex[i] = i;
+        KeyValueQuery<?> query = createQuery(accessor);
 
-			for (int j = 0; j < paramsProvided.length; j++) {
-				if (paramsProvided[j] != null && paramsProvided[j].equals(paramsExpected[i])) {
-					this.rearrangeIndex[i] = j;
-					this.isRearrangeRequired = true;
-				}
-			}
-		}
-	}
+        if (accessor.getPageable() != null && accessor.getPageable().isPaged()) {
+            query.setOffset(accessor.getPageable().getOffset());
+            query.setRows(accessor.getPageable().getPageSize());
+        } else {
+            query.setOffset(-1);
+            query.setRows(-1);
+        }
+
+        if (accessor.getSort() != null && accessor.getSort().isSorted()) {
+            query.setSort(accessor.getSort());
+        }
+
+        return query;
+    }
 
 }

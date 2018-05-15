@@ -15,29 +15,26 @@
  */
 package org.springframework.data.hazelcast.repository.support;
 
-import java.io.Serializable;
-
 import org.springframework.data.hazelcast.repository.HazelcastRepository;
 import org.springframework.data.keyvalue.core.KeyValueOperations;
 import org.springframework.data.keyvalue.repository.support.SimpleKeyValueRepository;
 import org.springframework.data.repository.core.EntityInformation;
 
+import java.io.Serializable;
+
 /**
  * <P>A concrete implementation to instantiate directly rather than allow
  * Spring to generate.
  * </P>
- * 
- * @author Neil Stevenson
  *
- * @param <T> The domain object
+ * @param <T>  The domain object
  * @param <ID> The key of the domain object
+ * @author Neil Stevenson
  */
-public class SimpleHazelcastRepository<T extends Serializable, ID extends Serializable>
-	extends SimpleKeyValueRepository<T, ID>
-    implements HazelcastRepository<T, ID> {
+public class SimpleHazelcastRepository<T extends Serializable, ID extends Serializable> extends SimpleKeyValueRepository<T, ID> implements HazelcastRepository<T, ID> {
 
-	public SimpleHazelcastRepository(EntityInformation<T, ID> metadata, KeyValueOperations operations) {
-		super(metadata, operations);
-	}
+    public SimpleHazelcastRepository(EntityInformation<T, ID> metadata, KeyValueOperations operations) {
+        super(metadata, operations);
+    }
 
 }
